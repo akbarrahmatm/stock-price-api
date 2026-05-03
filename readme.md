@@ -1,203 +1,132 @@
-# 🤖📊 WhatsApp Stock Alert System
+# 📈 Stock Price API
 
-Sistem monitoring & notifikasi saham Indonesia berbasis **WhatsApp Bot**, menggunakan arsitektur microservices dengan Docker.
-
-Project ini menggabungkan:
-
-- 📡 Monitoring & alerting
-- 📊 Data saham (Yahoo Finance)
-- 💬 Notifikasi real-time ke WhatsApp
+A lightweight REST API for fetching real-time Indonesian stock market (IDX) data, built with **FastAPI** and **yfinance**.
 
 ---
 
-## 🧠 Arsitektur
+## 🚀 Features
 
-```text
-Alertmanager → Webhook → Stock API → Yahoo Finance
-                                ↓
-                            WhatsApp
-```
+- Real-time IDX stock price lookup
+- Returns company name, current price, analyst target price, and recommendation
+- Fast and minimal — powered by FastAPI
 
 ---
 
-## 🧱 Services
+## 🛠️ Tech Stack
 
-### 🔔 Alertmanager
-
-Mengelola rule alert dan trigger notifikasi.
-
----
-
-### 🧠 Webhook
-
-- Menerima alert dari Alertmanager
-- Memproses logic (format message, parsing, dll)
-- Mengambil data saham dari Stock API
+| Library                                            | Purpose                      |
+| -------------------------------------------------- | ---------------------------- |
+| [FastAPI](https://fastapi.tiangolo.com/)           | Web framework                |
+| [yfinance](https://github.com/ranaroussi/yfinance) | Stock data via Yahoo Finance |
+| [Uvicorn](https://www.uvicorn.org/)                | ASGI server                  |
 
 ---
 
-### 📊 Stock API
-
-Service terpisah berbasis FastAPI untuk:
-
-- Ambil data saham IDX (Indonesia)
-- Integrasi dengan Yahoo Finance (`yfinance`)
-
----
-
-### 💬 WAHA (WhatsApp HTTP API)
-
-- Mengirim pesan ke WhatsApp
-- Menjadi gateway komunikasi bot
-
----
-
-## 📁 Project Structure
+## ⚙️ Installation
 
 ```bash
-.
-├── alertmanager/
-│   └── alertmanager.yml
-│
-├── webhook/
-│   └── (logic handler)
-│
-├── stock-api/
-│   ├── app/
-│   │   └── main.py
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── waha-data/
-│
-└── docker-compose.yml
+# Clone the repository
+git clone https://github.com/akbarrahmatm/stock-price-api.git
+cd stock-price-app
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
+uvicorn app.main:app --reload
 ```
+
+Server runs at: `http://localhost:8000`
 
 ---
 
-## ⚙️ Setup & Run
+## 📦 Requirements
 
-### 1. Jalankan semua service
-
-```bash
-docker-compose up -d --build
 ```
+fastapi
+uvicorn
+yfinance
+```
+
+> Save the above as `requirements.txt` in the root of your project.
 
 ---
 
-### 2. Akses service
+## 📡 Endpoints
 
-| Service        | URL                   |
-| -------------- | --------------------- |
-| Stock API      | http://localhost:3010 |
-| WAHA Dashboard | http://localhost:3005 |
-| Webhook        | http://localhost:3001 |
-| Alertmanager   | http://localhost:9093 |
+### `GET /`
 
----
+Health check — verifies the API is up and running.
 
-## 📡 API Usage (Stock API)
-
-### Get data saham
-
-```bash
-GET /saham/{kode}
-```
-
-Contoh:
-
-```bash
-GET /saham/DEWA
-```
-
-Response:
+**Response:**
 
 ```json
 {
-  "kode": "DEWA",
-  "nama": "PT Darma Henwa Tbk",
-  "harga": 476.0,
-  "target": 931.24,
-  "recommendation": "strong_buy"
+  "message": "Stock API OK 🚀"
 }
 ```
 
 ---
 
-## 💬 WhatsApp Integration
+### `GET /saham/{kode}`
 
-Webhook akan:
+Fetch stock data by IDX ticker symbol.
 
-1. Menerima trigger (alert / command)
-2. Ambil data dari Stock API
-3. Kirim ke WhatsApp via WAHA
+**Path Parameter:**
 
-Contoh output di WhatsApp:
+| Parameter | Type     | Description                      |
+| --------- | -------- | -------------------------------- |
+| `kode`    | `string` | IDX stock ticker (without `.JK`) |
+
+**Example Request:**
 
 ```
-📊 PT Darma Henwa Tbk
-Harga: 476
-Target: 931
-Rekomendasi: strong_buy
+GET /saham/BBCA
+```
+
+**Example Response:**
+
+```json
+{
+  "kode": "BBCA",
+  "nama": "Bank Central Asia Tbk",
+  "harga": 9350,
+  "target": 10500,
+  "recommendation": "buy"
+}
+```
+
+**Popular IDX Tickers:**
+
+| Code   | Company               |
+| ------ | --------------------- |
+| `BBCA` | Bank Central Asia     |
+| `TLKM` | Telkom Indonesia      |
+| `GOTO` | GoTo Gojek Tokopedia  |
+| `ASII` | Astra International   |
+| `BBRI` | Bank Rakyat Indonesia |
+
+---
+
+## 📂 Project Structure
+
+```
+└── stock-price-app
+    └── app
+        └── main.py
+    └── requirements.txt
 ```
 
 ---
 
-## 🔗 Internal Communication
+## 📝 Notes
 
-Gunakan nama service Docker:
-
-```bash
-http://stock-api:8000/saham/DEWA
-http://waha:3000/api/sendText
-```
+- The `.JK` suffix (Jakarta Stock Exchange) is automatically appended to every ticker when querying Yahoo Finance.
+- Data is sourced from **Yahoo Finance** via `yfinance` — a few minutes of delay may occur.
+- `target` and `recommendation` are based on analyst consensus and may be `null` if unavailable.
 
 ---
 
-## ⚠️ Notes
+## 📄 License
 
-- Saham Indonesia otomatis menggunakan suffix `.JK`
-- Data berasal dari Yahoo Finance (tidak real-time tick)
-- `yfinance` bisa lambat → disarankan caching
-
----
-
-## 🚀 Features (Current & Planned)
-
-### ✅ Current
-
-- Ambil data saham Indonesia
-- Kirim notifikasi ke WhatsApp
-- Integrasi Alertmanager
-
----
-
-### 🔜 Planned
-
-- 🔔 Price alert (trigger harga tertentu)
-- 📊 Chart saham (kirim gambar ke WA)
-- ⏱️ Scheduled report (harian)
-- 🤖 Command dari WhatsApp (`harga dewa`)
-- ⚡ Redis caching
-- 🧠 AI analisis saham
-
----
-
-## 🧠 Insight
-
-Project ini dirancang sebagai:
-
-> **Modular Notification Platform**
-
-Bisa dikembangkan untuk:
-
-- Monitoring server
-- Crypto alerts
-- CI/CD notifications
-- Business alerts
-
----
-
-## 👨‍💻 Author
-
-Akbar Rahmat M
+MIT License — free to use and modify.
