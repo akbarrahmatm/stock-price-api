@@ -1,9 +1,10 @@
-FROM golang:1.17-alpine AS build
+FROM golang:1.23-alpine AS build
 
 WORKDIR /src
 COPY go.mod ./
-RUN go mod download
+RUN go mod download || true
 COPY *.go ./
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /stock-api .
 
 FROM scratch

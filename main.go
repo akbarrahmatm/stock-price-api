@@ -4,37 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/AmpyFin/yfinance-go"
 )
-
-type YahooResponse struct {
-	QuoteSummary struct {
-		Result []struct {
-			FinancialData struct {
-				CurrentPrice    PriceField `json:"currentPrice"`
-				TargetMeanPrice PriceField `json:"targetMeanPrice"`
-				RecommendKey    string     `json:"recommendationKey"`
-			} `json:"financialData"`
-			QuoteType struct {
-				LongName string `json:"longName"`
-			} `json:"quoteType"`
-		} `json:"result"`
-		Error *struct {
-			Code        string `json:"code"`
-			Description string `json:"description"`
-		} `json:"error"`
-	} `json:"quoteSummary"`
-}
-
-type PriceField struct {
-	Raw float64 `json:"raw"`
-	Fmt string  `json:"fmt"`
-}
 
 type SahamResponse struct {
 	Kode           string      `json:"kode"`
@@ -49,72 +25,46 @@ type sahamResult struct {
 	Error string         `json:"error,omitempty"`
 }
 
-var httpClient = &http.Client{Timeout: 10 * time.Second}
+var yfClient = yfinance.NewClient()
 
 func fetchSaham(ctx context.Context, kode string) (*SahamResponse, error) {
 	ticker := strings.ToUpper(kode) + ".JK"
-	url := fmt.Sprintf(
-		"https://query1.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=financialData,quoteType",
-		ticker,
-	)
+	sr := &SahamResponse{Kode: strings.ToUpper(kode)}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	quote, err := yfClient.FetchQuote(ctx, ticker, "stock-api")
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quote: %w", err)
 	}
 
-	var yr YahooResponse
-	if err := json.Unmarshal(body, &yr); err != nil {
-		return nil, fmt.Errorf("parse error: %w", err)
+	if quote.Security.Symbol != "" {
+		sr.Nama = quote.Security.Symbol
+	}
+	if quote.RegularMarketPrice != nil {
+		sr.Harga = float64(quote.RegularMarketPrice.Scaled) / float64(quote.RegularMarketPrice.Scale)
 	}
 
-	if yr.QuoteSummary.Error != nil {
-		return nil, fmt.Errorf("yahoo error: %s", yr.QuoteSummary.Error.Description)
+	info, err := yfClient.FetchCompanyInfo(ctx, ticker, "stock-api")
+	if err == nil && info.LongName != "" {
+		sr.Nama = info.LongName
 	}
 
-	if len(yr.QuoteSummary.Result) == 0 {
-		return &SahamResponse{
-			Kode: strings.ToUpper(kode),
-		}, nil
-	}
-
-	r := yr.QuoteSummary.Result[0]
-
-	sr := &SahamResponse{
-		Kode: strings.ToUpper(kode),
-	}
-
-	if r.QuoteType.LongName != "" {
-		sr.Nama = r.QuoteType.LongName
-	}
-	if r.FinancialData.CurrentPrice.Raw != 0 {
-		sr.Harga = r.FinancialData.CurrentPrice.Raw
-	}
-	if r.FinancialData.TargetMeanPrice.Raw != 0 {
-		sr.Target = r.FinancialData.TargetMeanPrice.Raw
-	}
-	if r.FinancialData.RecommendKey != "" {
-		sr.Recommendation = r.FinancialData.RecommendKey
+	analysis, err := yfClient.ScrapeAnalysis(ctx, ticker, "stock-api")
+	if err == nil && analysis != nil {
+		for _, line := range analysis.Lines {
+			if line.Label == "targetMeanPrice" || line.Label == "Target Mean Price" {
+				if line.Amount != nil {
+					sr.Target = float64(line.Amount.Scaled) / float64(line.Amount.Scale)
+				}
+			}
+			if line.Label == "recommendationKey" || line.Label == "Recommendation" {
+				sr.Recommendation = line.StringValue
+			}
+		}
 	}
 
 	return sr, nil
 }
 
-// fetchSahamBatch fetches multiple stocks concurrently using goroutines (like Promise.all in JS).
-// Each stock is fetched in its own goroutine; results are collected via sync.WaitGroup.
-// The parent context propagates cancellation — if the client disconnects, all in-flight fetches abort.
 func fetchSahamBatch(ctx context.Context, kodeList []string) map[string]sahamResult {
 	results := make(map[string]sahamResult, len(kodeList))
 	var mu sync.Mutex
@@ -166,8 +116,6 @@ func handleSaham(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// handleSahamBatch handles GET /saham/batch?kode=BBCA,TLKM,ASII
-// Spawns one goroutine per stock code, fetches all concurrently (like Promise.all).
 func handleSahamBatch(w http.ResponseWriter, r *http.Request) {
 	raw := r.URL.Query().Get("kode")
 	if raw == "" {
