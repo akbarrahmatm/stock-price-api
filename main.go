@@ -48,16 +48,18 @@ func fetchSaham(ctx context.Context, kode string) (*SahamResponse, error) {
 		sr.Nama = info.LongName
 	}
 
-	analysis, err := yfClient.ScrapeAnalysis(ctx, ticker, "stock-api")
-	if err == nil && analysis != nil {
-		for _, line := range analysis.Lines {
-			if line.Label == "targetMeanPrice" || line.Label == "Target Mean Price" {
-				if line.Amount != nil {
-					sr.Target = float64(line.Amount.Scaled) / float64(line.Amount.Scale)
+	insights, err := yfClient.ScrapeAnalystInsights(ctx, ticker, "stock-api")
+	if err == nil && insights != nil {
+		for _, line := range insights.Lines {
+			if line.Key == "target_price_mean" {
+				if line.Value != nil {
+					sr.Target = float64(line.Value.Scaled) / float64(line.Value.Scale)
 				}
 			}
-			if line.Label == "recommendationKey" || line.Label == "Recommendation" {
-				sr.Recommendation = line.StringValue
+			if line.Key == "recommendation_score" {
+				if line.Value != nil {
+					sr.Recommendation = float64(line.Value.Scaled) / float64(line.Value.Scale)
+				}
 			}
 		}
 	}
