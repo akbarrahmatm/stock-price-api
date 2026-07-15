@@ -1,68 +1,61 @@
-# 📈 Stock Price API
+# Stock Price API
 
-A lightweight REST API for fetching real-time Indonesian stock market (IDX) data, built with **FastAPI** and **yfinance**.
+A lightweight REST API for fetching real-time Indonesian stock market (IDX) data, built with **Go** and the **Yahoo Finance** API.
+
+Compiled to a single static binary. Docker image is ~15 MB.
 
 ---
 
-## 🚀 Features
+## Features
 
 - Real-time IDX stock price lookup
-- Returns company name, current price, analyst target price, and recommendation
-- Fast and minimal — powered by FastAPI
+- Batch endpoint — fetch multiple stocks concurrently via goroutines
+- Context-aware HTTP calls with automatic cancellation
+- Minimal Docker image using multi-stage build (`scratch`)
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-| Library                                            | Purpose                      |
-| -------------------------------------------------- | ---------------------------- |
-| [FastAPI](https://fastapi.tiangolo.com/)           | Web framework                |
-| [yfinance](https://github.com/ranaroussi/yfinance) | Stock data via Yahoo Finance |
-| [Uvicorn](https://www.uvicorn.org/)                | ASGI server                  |
+| Component | Purpose |
+| --- | --- |
+| Go `net/http` (stdlib) | HTTP server & router |
+| Yahoo Finance API | Stock data source |
+| `sync.WaitGroup` / goroutines | Concurrent batch fetching |
 
 ---
 
-## ⚙️ Installation
+## Installation
+
+### Run locally
 
 ```bash
-# Clone the repository
-git clone https://github.com/akbarrahmatm/stock-price-api.git
-cd stock-price-app
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the server
-uvicorn app.main:app --reload
+git clone https://github.com/akbarrahmatm/akbarrahmatm-stock-api.git
+cd akbarrahmatm-stock-api
+go run .
 ```
 
 Server runs at: `http://localhost:8000`
 
----
+### Run with Docker
 
-## 📦 Requirements
-
-```
-fastapi
-uvicorn
-yfinance
+```bash
+docker compose up --build
 ```
 
-> Save the above as `requirements.txt` in the root of your project.
+Server runs at: `http://localhost:3010`
 
 ---
 
-## 📡 Endpoints
+## Endpoints
 
 ### `GET /`
 
-Health check — verifies the API is up and running.
-
-**Response:**
+Health check.
 
 ```json
 {
-  "message": "Stock API OK 🚀"
+  "message": "Stock API OK"
 }
 ```
 
@@ -72,19 +65,11 @@ Health check — verifies the API is up and running.
 
 Fetch stock data by IDX ticker symbol.
 
-**Path Parameter:**
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `kode` | `string` | IDX stock ticker (without `.JK`) |
 
-| Parameter | Type     | Description                      |
-| --------- | -------- | -------------------------------- |
-| `kode`    | `string` | IDX stock ticker (without `.JK`) |
-
-**Example Request:**
-
-```
-GET /saham/BBCA
-```
-
-**Example Response:**
+**Example:** `GET /saham/BBCA`
 
 ```json
 {
@@ -96,37 +81,80 @@ GET /saham/BBCA
 }
 ```
 
-**Popular IDX Tickers:**
+---
 
-| Code   | Company               |
-| ------ | --------------------- |
-| `BBCA` | Bank Central Asia     |
-| `TLKM` | Telkom Indonesia      |
-| `GOTO` | GoTo Gojek Tokopedia  |
-| `ASII` | Astra International   |
+### `GET /saham/batch?kode=BBCA,TLKM,ASII`
+
+Fetch multiple stocks concurrently (goroutines, like `Promise.all` in JS).
+
+**Example:** `GET /saham/batch?kode=BBCA,TLKM`
+
+```json
+{
+  "BBCA": {
+    "data": {
+      "kode": "BBCA",
+      "nama": "Bank Central Asia Tbk",
+      "harga": 9350,
+      "target": 10500,
+      "recommendation": "buy"
+    }
+  },
+  "TLKM": {
+    "data": {
+      "kode": "TLKM",
+      "nama": "Telkom Indonesia Tbk",
+      "harga": 3200,
+      "target": 3800,
+      "recommendation": "hold"
+    }
+  }
+}
+```
+
+---
+
+## Popular IDX Tickers
+
+| Code | Company |
+| --- | --- |
+| `BBCA` | Bank Central Asia |
+| `TLKM` | Telkom Indonesia |
+| `GOTO` | GoTo Gojek Tokopedia |
+| `ASII` | Astra International |
 | `BBRI` | Bank Rakyat Indonesia |
 
 ---
 
-## 📂 Project Structure
+## Testing
 
-```
-└── stock-price-app
-    └── app
-        └── main.py
-    └── requirements.txt
+```bash
+go test -v ./...
 ```
 
 ---
 
-## 📝 Notes
+## Project Structure
 
-- The `.JK` suffix (Jakarta Stock Exchange) is automatically appended to every ticker when querying Yahoo Finance.
-- Data is sourced from **Yahoo Finance** via `yfinance` — a few minutes of delay may occur.
+```
+.
+├── main.go           # Server, handlers, Yahoo Finance client
+├── main_test.go      # Tests (9 cases)
+├── go.mod
+├── Dockerfile        # Multi-stage build → scratch
+└── docker-compose.yml
+```
+
+---
+
+## Notes
+
+- The `.JK` suffix (Jakarta Stock Exchange) is automatically appended to every ticker.
+- Data is sourced from Yahoo Finance's unofficial API — a few minutes of delay may occur.
 - `target` and `recommendation` are based on analyst consensus and may be `null` if unavailable.
 
 ---
 
-## 📄 License
+## License
 
 MIT License — free to use and modify.
