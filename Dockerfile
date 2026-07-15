@@ -1,10 +1,13 @@
-FROM python:3.10-slim
+FROM golang:1.17-alpine AS build
 
-WORKDIR /app
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+COPY *.go ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /stock-api .
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY ./app ./app
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /stock-api /stock-api
+EXPOSE 8000
+ENTRYPOINT ["/stock-api"]

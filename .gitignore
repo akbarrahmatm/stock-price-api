@@ -1,3 +1,5 @@
-__pycache__
-*.pyc
 .env
+stock-api
+stock-api.exe
+*_test.go
+.git
