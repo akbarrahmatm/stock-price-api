@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -40,7 +41,7 @@ func fetchSaham(ctx context.Context, kode string) (*SahamResponse, error) {
 		sr.Nama = quote.Security.Symbol
 	}
 	if quote.RegularMarketPrice != nil {
-		sr.Harga = float64(quote.RegularMarketPrice.Scaled) / float64(quote.RegularMarketPrice.Scale)
+		sr.Harga = float64(quote.RegularMarketPrice.Scaled) / math.Pow(10, float64(quote.RegularMarketPrice.Scale))
 	}
 
 	info, err := yfClient.FetchCompanyInfo(ctx, ticker, "stock-api")
@@ -53,7 +54,7 @@ func fetchSaham(ctx context.Context, kode string) (*SahamResponse, error) {
 		for _, line := range insights.Lines {
 			if line.Key == "target_price_mean" {
 				if line.Value != nil {
-					sr.Target = float64(line.Value.Scaled) / float64(line.Value.Scale)
+					sr.Target = float64(line.Value.Scaled) / math.Pow(10, float64(line.Value.Scale))
 				}
 			}
 			if line.Key == "recommendation_score" {
