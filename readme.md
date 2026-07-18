@@ -75,9 +75,7 @@ Fetch stock data by IDX ticker symbol.
 {
   "kode": "BBCA",
   "nama": "Bank Central Asia Tbk",
-  "harga": 9350,
-  "target": 10500,
-  "recommendation": "buy"
+  "harga": 9350
 }
 ```
 
@@ -95,18 +93,14 @@ Fetch multiple stocks concurrently (goroutines, like `Promise.all` in JS).
     "data": {
       "kode": "BBCA",
       "nama": "Bank Central Asia Tbk",
-      "harga": 9350,
-      "target": 10500,
-      "recommendation": "buy"
+      "harga": 9350
     }
   },
   "TLKM": {
     "data": {
       "kode": "TLKM",
       "nama": "Telkom Indonesia Tbk",
-      "harga": 3200,
-      "target": 3800,
-      "recommendation": "hold"
+      "harga": 3200
     }
   }
 }
@@ -151,7 +145,6 @@ go test -v ./...
 
 - The `.JK` suffix (Jakarta Stock Exchange) is automatically appended to every ticker.
 - Data is sourced from Yahoo Finance's unofficial API — a few minutes of delay may occur.
-- `target` and `recommendation` are based on analyst consensus and may be `null` if unavailable.
 
 ---
 
