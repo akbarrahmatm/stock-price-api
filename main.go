@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,8 +17,6 @@ type SahamResponse struct {
 	Kode           string      `json:"kode"`
 	Nama           interface{} `json:"nama"`
 	Harga          interface{} `json:"harga"`
-	Target         interface{} `json:"target"`
-	Recommendation interface{} `json:"recommendation"`
 }
 
 type sahamResult struct {
@@ -40,28 +39,12 @@ func fetchSaham(ctx context.Context, kode string) (*SahamResponse, error) {
 		sr.Nama = quote.Security.Symbol
 	}
 	if quote.RegularMarketPrice != nil {
-		sr.Harga = float64(quote.RegularMarketPrice.Scaled) / float64(quote.RegularMarketPrice.Scale)
+		sr.Harga = float64(quote.RegularMarketPrice.Scaled) / math.Pow(10, float64(quote.RegularMarketPrice.Scale))
 	}
 
 	info, err := yfClient.FetchCompanyInfo(ctx, ticker, "stock-api")
 	if err == nil && info.LongName != "" {
 		sr.Nama = info.LongName
-	}
-
-	insights, err := yfClient.ScrapeAnalystInsights(ctx, ticker, "stock-api")
-	if err == nil && insights != nil {
-		for _, line := range insights.Lines {
-			if line.Key == "target_price_mean" {
-				if line.Value != nil {
-					sr.Target = float64(line.Value.Scaled) / float64(line.Value.Scale)
-				}
-			}
-			if line.Key == "recommendation_score" {
-				if line.Value != nil {
-					sr.Recommendation = float64(line.Value.Scaled) / float64(line.Value.Scale)
-				}
-			}
-		}
 	}
 
 	return sr, nil
